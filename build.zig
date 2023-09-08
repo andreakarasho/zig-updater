@@ -25,9 +25,9 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const zip_pkg = zip.package(b, .{});
+    const zip_pkg = zip.package(b, target, optimize, .{});
     exe.addModule("zip", zip_pkg.module);
-    zip.link(exe);
+    exe.linkLibrary(zip_pkg.lib);
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default

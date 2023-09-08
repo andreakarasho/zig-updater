@@ -1,6 +1,8 @@
 const std = @import("std");
 const zip = @import("zip");
 
+const output_path = "C:\\ziglang_test";
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -32,7 +34,7 @@ pub fn main() !void {
     const version = json.value.object.get("master").?.object.get("version").?.string;
     const url = json.value.object.get("master").?.object.get("x86_64-windows").?.object.get("tarball").?.string;
     const size = try std.fmt.parseInt(i32, json.value.object.get("master").?.object.get("x86_64-windows").?.object.get("size").?.string, 10);
-    std.debug.print("version: {s}\nurl: {s}\nsize: {}\n", .{ version, url, size });
+    std.log.info("version: {s}\nurl: {s}\nsize: {}\n", .{ version, url, size });
 
     const uri_download = try std.Uri.parse(url);
 
@@ -49,9 +51,8 @@ pub fn main() !void {
 
     if (zip.zip_stream_open(zip_buf.ptr, zip_buf.len, zip.ZIP_DEFAULT_COMPRESSION_LEVEL, 'r')) |archive| {
         const total: usize = @intCast(zip.zip_entries_total(archive));
-        std.debug.print("total {}\n", .{total});
+        std.log.info("total {}\n", .{total});
 
-        const target_path = "C:\\ziglang_test";
         var output: [256:0]u8 = undefined;
 
         for (0..total) |i| {
@@ -63,7 +64,7 @@ pub fn main() !void {
 
                 const zip_file_path = std.mem.span(zip.zip_entry_name(archive));
 
-                replaceRootPath(zip_file_path, target_path, &output);
+                replaceRootPath(zip_file_path, output_path, &output);
                 try createPathRecursively(&output);
 
                 std.debug.print("output: {s}\n", .{output});
