@@ -50,6 +50,8 @@ pub fn main() !void {
     _ = try req_download.reader().readAll(zip_buf);
 
     if (zip.zip_stream_open(zip_buf.ptr, zip_buf.len, zip.ZIP_DEFAULT_COMPRESSION_LEVEL, 'r')) |archive| {
+        defer zip.zip_stream_close(archive);
+
         const total: usize = @intCast(zip.zip_entries_total(archive));
         std.log.info("total {}\n", .{total});
 
@@ -57,15 +59,16 @@ pub fn main() !void {
 
         for (0..total) |i| {
             if (zip.zip_entry_openbyindex(archive, @intCast(i)) == 0) {
-                if (zip.zip_entry_isdir(archive) == 1) {
-                    _ = zip.zip_entry_close(archive);
-                    continue;
-                }
+                defer _ = zip.zip_entry_close(archive);
+
+                if (zip.zip_entry_isdir(archive) == 1) continue;
 
                 const zip_file_path = std.mem.span(zip.zip_entry_name(archive));
 
                 replaceRootPath(zip_file_path, output_path, &output);
-                try createPathRecursively(&output);
+
+                if (std.fs.path.dirname(&output)) |path|
+                    try std.fs.cwd().makePath(path);
 
                 std.debug.print("output: {s}\n", .{output});
 
@@ -74,11 +77,8 @@ pub fn main() !void {
                 if (res < 0) {
                     std.log.err("error on reading: {}", .{res});
                 }
-                _ = zip.zip_entry_close(archive);
             }
         }
-
-        zip.zip_stream_close(archive);
     }
 }
 
@@ -97,17 +97,4 @@ fn replaceRootPath(original_path: []const u8, target_path: []const u8, output: [
         index = original_path.len;
 
     _ = std.mem.replace(u8, original_path, original_path[0..index.?], target_path, output);
-}
-
-fn createPathRecursively(target_path: []const u8) !void {
-    for (target_path, 0..) |c, i| {
-        if (c == '/' or c == '\\') {
-            std.fs.cwd().makeDir(target_path[0..i]) catch |err| switch (err) {
-                error.PathAlreadyExists => continue,
-                else => return err,
-            };
-
-            std.debug.print("creating sub path: {s}\n", .{target_path[0..i]});
-        }
-    }
 }
